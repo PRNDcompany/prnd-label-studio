@@ -1,0 +1,86 @@
+networks:
+  internal_network:
+    driver: bridge
+
+services:
+  app:
+    container_name: label-studio
+    build:
+      context: .
+      dockerfile: prnd_label_studio/Dockerfile
+    image: prnd/label-studio:${LABEL_STUDIO_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - internal_network
+    ports:
+      - "${LABEL_STUDIO_PORT}:8080"
+    depends_on:
+      - db
+    environment:
+      - DJANGO_DB=default
+      - POSTGRE_NAME=postgres
+      - POSTGRE_USER=postgres
+      - POSTGRE_PASSWORD=
+      - POSTGRE_PORT=5432
+      - POSTGRE_HOST=db
+      - JSON_LOG=1
+      - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/data2
+    #      - LOG_LEVEL=DEBUG
+    volumes:
+      - ${ANNOTATE_DATA:-/data2}:/data2:r
+      - ${LABEL_STUDIO_DATA:-/data2/label-studio}:/label-studio/data:rw
+
+  db:
+    container_name: label-studio-db
+    image: postgres:11.5
+    hostname: db
+    restart: unless-stopped
+    networks:
+      - internal_network
+    # Optional: Enable TLS on PostgreSQL
+    # Just drop your server.crt and server.key into folder 'deploy/pgsql/certs'
+    # NOTE: Both files must have permissions u=rw (0600) or less
+    #    command: >
+    #      -c ssl=on
+    #      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+    #      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - ${POSTGRES_DATA_DIR:-/data2/label-studio/postgres}:/var/lib/postgresql/data
+
+  ml-backend:
+    container_name: cvt-polygon-to-brush
+    image: prnd/label-studio-ml-backend:${LABEL_STUDIO_ML_BACKEND_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: ./prnd_label_studio_ml_backend/convert_polygon_to_brush/Dockerfile
+      args:
+        TEST_ENV: ${TEST_ENV}
+    networks:
+      - internal_network
+    restart: unless-stopped
+    environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # any other parameters that you want to pass to the model server
+      - ANY=PARAMETER
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
+
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_URL=${LABEL_STUDIO_URL}
+      - LABEL_STUDIO_API_KEY=${LABEL_STUDIO_API_KEY}
+    ports:
+      - "9090:9090"

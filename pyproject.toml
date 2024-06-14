@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "prnd-label-studio"
+version = "0.1.0"
+description = ""
+authors = ["evan-prnd <evan@prnd.co.kr>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.8"
+label-studio-ml = { git = "https://github.com/HumanSignal/label-studio-ml-backend.git", rev = "d182572" }
+label-studio-converter = "^0.0.58"
+opencv-python = "^4.10.0.84"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
